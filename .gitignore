@@ -1,1 +1,15 @@
+# OS
 .DS_Store
+
+# Official ISO images dropped into the repo root (large binaries, not for VCS)
+*.iso
+
+# Runtime-generated directories
+ISO/
+patch/
+W10UItemp/
+W10UImount/
+W10UImountre/
+
+# Debug log
+W10UI_Debug.log

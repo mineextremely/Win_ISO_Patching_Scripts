@@ -11,7 +11,7 @@
 
 ###### Supported Windows Versions:
 
-|Name|Internal Version (Last Updated: August 27, 2026)|
+|Name|Internal Version (Last Updated: August 31, 2026)|
 |---|---|
 |**Windows 10 Enterprise LTSB 2016, Windows Server 2016**|**Build 14393.9418**|
 |**Windows 10 Enterprise LTSC 2019, Windows Server 2019**|**Build 17763.9121 (2024-6, Arm Version EOL)**|
@@ -31,7 +31,8 @@
 |**AutoStart = 1**|For multi-version images, the script will download and integrate all the images by default and start automatically. If you need to select a specific version in the image, such as only generating an integrated update image for the Professional edition. Change it to 0 (After the script is run, press 8 to select the version. You can select multiple versions. After selecting, press 0 to start.)|
 |**ltscfix = 1**|Repair the library files for LTSC 2021 & 2024 (this option will be removed after the official patch is released). If you do not want to repair. Change it to 0|
 |**netfx481 = 1**|Support for .NET Framework 4.8.1. If you do not want to install it. Change it to 0|
-|**apply26h2 = 0**|Windows 11 26H2 enablement package (KB5121794) is NOT integrated by default; both 25H2 and 26H2 ISOs are patched as 25H2. Set to 1 to integrate (a 25H2 ISO will also be upgraded to 26H2)|
+|**apply26h2 = 0**|Windows 11 26H2 enablement package (KB5121794) is NOT integrated by default. Set to 1 to integrate (a 25H2 ISO will also be upgraded to 26H2). Enablement packages are also governed by SkipKB|
+|**SkipKB = 5054156,5121794**|Comma-separated KB numbers to exclude from integration. Default excludes the 25H2 (KB5054156) and 26H2 (KB5121794) enablement packages, keeping the 24H2 baseline. Clear it to allow 25H2/26H2 via apply26h2|
 |**nosuggapp = 0**|If you want to disable the installation of third-party apps after a new installation of Windows. Change it to 1|
 |**nosuggtip = 0**|If you want to disable the useless suggestion tips and functions in Windows. Change it to 1|
 |**norestorage = 0**|If you want to disable the space usage of the reserved storage. Change it to 1|

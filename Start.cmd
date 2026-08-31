@@ -234,13 +234,15 @@ if "%build%"=="26100" if defined isServer (
 
 set "apply26h2="
 for /f "tokens=2 delims==" %%i in ('findstr /b "apply26h2" W10UI.ini') do set "apply26h2=%%i"
+set "skipkb="
+for /f "tokens=2 delims==" %%i in ('findstr /b "SkipKB" W10UI.ini') do set "skipkb=%%i"
 if "%build%"=="26100" if not defined isServer (
     if "%apply26h2%"=="1" (
         if exist "%patchDir%\*kb5054156*" del /f /q "%patchDir%\*kb5054156*"
     ) else (
         echo.
-%zh%        echo 26H2 补丁默认未启用，按 25H2 处理（W10UI.ini 中 apply26h2=1 可开启 26H2 补丁）。
-%en%        echo 26H2 patches are disabled by default, patching as 25H2 only. Set apply26h2=1 in W10UI.ini to enable.
+%zh%        echo 默认保持 24H2 基线（启用包按 SkipKB 排除）。清空 SkipKB 后：apply26h2=1 升 26H2，否则按 25H2。
+%en%        echo Keeping 24H2 baseline by default (enablement packages excluded per SkipKB). Clear SkipKB to control 25H2/26H2 via apply26h2.
     )
 )
 
@@ -286,6 +288,15 @@ if "%build%" geq "14393" if "%build%" leq "17763" (
 )
 
 if not "%apply26h2%"=="1" if exist "%patchDir%\*kb5121794*" del /f /q "%patchDir%\*kb5121794*"
+
+if defined skipkb (
+    echo.
+%zh%    echo 已按 SkipKB 排除补丁：%skipkb%
+%en%    echo Excluded patches per SkipKB: %skipkb%
+    for %%K in (%skipkb%) do (
+        if exist "%patchDir%\*kb%%K*" del /f /q "%patchDir%\*kb%%K*"
+    )
+)
 
 echo.
 %zh%echo 补丁下载完成

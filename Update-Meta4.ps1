@@ -122,9 +122,9 @@ function Follow-Chain { param($OldKb, $ArchPat, $OsPref, [switch]$Server)
     $key = "$OldKb|$ArchPat|$Server"; if ($chainCache.ContainsKey($key)) { return $chainCache[$key] }
     $r = Search-Catalog "$OldKb"
     if ($Server) {
-        $first = $r | Where-Object { $_.Title -match $ArchPat -and $_.Title -match 'server operating system' } | Select-Object -First 1
+        $first = $r | Where-Object { $_.Title -match $ArchPat -and $_.Title -match 'server operating system' -and $_.Title -notmatch 'Preview' } | Select-Object -First 1
     } else {
-        $first = $r | Where-Object { $_.Title -match $ArchPat -and $_.Title -notmatch 'server operating system' } | Select-Object -First 1
+        $first = $r | Where-Object { $_.Title -match $ArchPat -and $_.Title -notmatch 'server operating system' -and $_.Title -notmatch 'Preview' } | Select-Object -First 1
     }
     if (-not $first) { $chainCache[$key] = $null; return $null }
     try { $sv = Retry-WebRequest -Url ("https://www.catalog.update.microsoft.com/v7/site/ScopedViewInline.aspx?updateid=" + $first.Guid)
@@ -135,7 +135,14 @@ function Follow-Chain { param($OldKb, $ArchPat, $OsPref, [switch]$Server)
     $links = $reScopedLink.Matches($match.Groups[1].Value)
     if ($links.Count -eq 0) { $ll = Get-Links $first.Guid; $chainCache[$key] = $ll; return $ll }
     $sorted = $links | Sort-Object { $_.Groups[2].Value } -Descending
-    $guid = if ($sorted[0].Groups[1].Value -match $reScopedGuid) { $matches[1] }
+    $picked = $sorted | Where-Object { $_.Groups[2].Value -notmatch 'Preview' } | Select-Object -First 1
+    if (-not $picked) {
+        # Supersedence chain has no non-preview update: current KB is already the latest GA.
+        $ll = Get-Links $first.Guid
+        $chainCache[$key] = $ll
+        return $ll
+    }
+    $guid = if ($picked.Groups[1].Value -match $reScopedGuid) { $matches[1] }
     if (-not $guid) { $chainCache[$key] = $null; return $null }
     $result = Get-Links $guid
     $chainCache[$key] = $result; return $result
@@ -144,10 +151,10 @@ function Follow-Chain { param($OldKb, $ArchPat, $OsPref, [switch]$Server)
 function Bootstrap-Search { param($Term, $ArchPat, $OsPref, $Kind)
     $r = Search-Catalog $Term
     if ($Kind -eq "LCU") {
-        $best = $r | Where-Object { $_.Title -match $ArchPat -and $_.Title -match 'Cumulative Update' -and $_.Title -notmatch '\.NET' } | Sort-Object Title -Descending | Select-Object -First 1
+        $best = $r | Where-Object { $_.Title -match $ArchPat -and $_.Title -match 'Cumulative Update' -and $_.Title -notmatch '\.NET' -and $_.Title -notmatch 'Preview' } | Sort-Object Title -Descending | Select-Object -First 1
     } else {
         # For .NET: prefer pure "4.8" over combined updates including "4.8.1" or "4.7.2"
-        $candidates = $r | Where-Object { $_.Title -match $ArchPat -and $_.Title -match '\.NET' }
+        $candidates = $r | Where-Object { $_.Title -match $ArchPat -and $_.Title -match '\.NET' -and $_.Title -notmatch 'Preview' }
         $best = $candidates | Where-Object { $_.Title -notmatch '4\.7\.2' }
         if ($Term -notmatch '4\.8\.1') { $best = $best | Where-Object { $_.Title -notmatch '4\.8\.1' } }
         if ($Term -match '4\.8\.1') { $best = $best | Where-Object { $_.Title -notmatch '4\.8\s+and\s+4\.8\.1' } }
@@ -157,7 +164,7 @@ function Bootstrap-Search { param($Term, $ArchPat, $OsPref, $Kind)
     # If arch-specific search fails (some x86 .NET updates lack "for x86" in title), 
     # try finding an entry without any architecture tag
     if (-not $best -and $Kind -ne "LCU") {
-        $candidates = $r | Where-Object { $_.Title -match '\.NET' -and $_.Title -notmatch 'for (x64|arm64)' }
+        $candidates = $r | Where-Object { $_.Title -match '\.NET' -and $_.Title -notmatch 'for (x64|arm64)' -and $_.Title -notmatch 'Preview' }
         $best = $candidates | Where-Object { $_.Title -notmatch '4\.7\.2' }
         if ($Term -notmatch '4\.8\.1') { $best = $best | Where-Object { $_.Title -notmatch '4\.8\.1' } }
         if ($Term -match '4\.8\.1') { $best = $best | Where-Object { $_.Title -notmatch '4\.8\s+and\s+4\.8\.1' } }
@@ -236,7 +243,7 @@ function Get-OldKB($Path, $Kind, $ArchPat = "") {
                     try {
                         $r = Search-Catalog "kb$ckb"
                         $t = ($r | Where-Object { $_.Title -match $ArchPat } | Select-Object -First 1).Title
-                        if ($t -match 'Cumulative Update' -and $t -notmatch '\.NET') {
+                        if ($t -match 'Cumulative Update' -and $t -notmatch '\.NET' -and $t -notmatch 'Preview') {
                             return $ckb
                         }
                     } catch { continue }
@@ -631,6 +638,7 @@ foreach ($bn in $Build) {
                         $r = Search-Catalog "kb$ckb"
                         $t = ($r | Where-Object { $_.Title -match $ap } | Select-Object -First 1).Title
                         if (-not $t) { continue }  # expired KB — preserve
+                        if ($t -match 'Preview') { $lcuKbsToExclude += $ckb; continue }  # drop Preview-channel updates
                         $otype = if ($t -match 'Cumulative Update' -and $t -notmatch '\.NET') { 'LCU' }
                                  elseif ($t -match 'Safe OS') { 'SafeOS' }
                                  elseif ($t -match 'Setup Dynamic Update') { 'SetupDU' }
